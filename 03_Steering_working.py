@@ -52,10 +52,23 @@ def desired_velocity(target, position, dot):
     desired_y = target[0,1] - position[0,1]
     divider = np.power(desired_x,2) + np.power(desired_y,2)
     divider = np.sqrt(divider)
-    normalize = np.divide(1000, divider)
+    normalize = np.divide(dot, divider)
     desired_x = desired_x * normalize
     desired_y = desired_y * normalize
     return np.array([[desired_x,desired_y]])
+
+def rampe_thrust(distance, slow_radius):
+    compute = distance - slow_radius
+    print("compute {} distance {} slow_radius {}".format(compute,distance,slow_radius),  file=sys.stderr)
+    compute = max(compute, 0)
+    print("compute {} ".format(compute),  file=sys.stderr)
+    compute = compute / slow_radius
+    print("compute {} ".format(compute),  file=sys.stderr)
+    thrust = int(20*compute)
+    print("thrust {} compute {} ".format(thrust,compute),  file=sys.stderr)
+    thrust = min(thrust,100)
+    print("thrust {} compute {} ".format(thrust,compute),  file=sys.stderr)
+    return thrust
 
 poly = ConfigureFirstPoly()
 in_coord = np.array([[]])
@@ -63,6 +76,8 @@ state_coord = np.array([[]])
 result = {}
 state = {}
 index = 0
+burst = 1
+
 
 # game loop
 while True:
@@ -89,27 +104,39 @@ while True:
         position = np.array([[ x , y ]])
         #print("position {} ".format(position),  file=sys.stderr)
         desired = desired_velocity(target, position, state['dot'])
-        print("desired {} ".format(desired),  file=sys.stderr)
-        print("pos  x {} pos  y {}".format(x,y), file=sys.stderr)
-        print("next x {} next y {}".format(next_checkpoint_x,next_checkpoint_y), file=sys.stderr)
-        print("des  x {} des  y {}".format(next_checkpoint_x-x,next_checkpoint_y-y), file=sys.stderr)
+        #print("desired {} ".format(desired),  file=sys.stderr)
+        #print("pos  x {} pos  y {}".format(x,y), file=sys.stderr)
+        #print("next x {} next y {}".format(next_checkpoint_x,next_checkpoint_y), file=sys.stderr)
+        #print("des  x {} des  y {}".format(next_checkpoint_x-x,next_checkpoint_y-y), file=sys.stderr)
         steering =np.array([[desired[0,0]-state['dot_x'],desired[0,1]-state['dot_y']]])
-        print("steering {} ".format(steering),  file=sys.stderr)
-        result['x'] = x + (int) (steering[0,0])
-        result['y'] = y + (int) (steering[0,1])
+        #print("steering {} ".format(steering),  file=sys.stderr)
+        result['x'] = next_checkpoint_x + (int) (steering[0,0])
+        result['y'] = next_checkpoint_y + (int) (steering[0,1])
 
     else:
-
+        
+        state['dot'] = 600
         result['x'] = next_checkpoint_x
         result['y'] = next_checkpoint_y
 
-    result['thrust'] = 100
-    if next_checkpoint_dist < 50 :
-        result['thrust'] = 0
-    elif next_checkpoint_dist < 150 :
-        result['thrust'] = 50
-    elif next_checkpoint_dist < 250 :
-        result['thrust'] = 80
+#    result['thrust'] = 100
+#    if next_checkpoint_dist < 1000 and state['dot'] > 200 :
+#        result['thrust'] = 0
+#    elif next_checkpoint_dist < 2000  and state['dot'] > 400 :
+#        result['thrust'] = 50
+#    elif next_checkpoint_dist < 2000  and state['dot'] > 200 :
+#        result['thrust'] = 70
+#    elif next_checkpoint_dist < 3000 :
+#        result['thrust'] = 90
+    result['thrust'] = rampe_thrust(next_checkpoint_dist, 600)
+
+    print("burst {} check dist {} check angle {}".format(
+        burst, next_checkpoint_dist > 5000, abs(next_checkpoint_angle) < 10),
+        file=sys.stderr)
+
+    if burst and next_checkpoint_dist > 4500 and abs(next_checkpoint_angle) < 10 :
+        result['thrust'] = "BOOST"
+        burst = 0
 
     print("distance {} ".format(next_checkpoint_dist),  file=sys.stderr)
 
